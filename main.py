@@ -1,11 +1,36 @@
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from starlette.responses import RedirectResponse
+from typing import Annotated
+from fastapi import FastAPI, HTTPException, Request, Form
+from starlette.responses import RedirectResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="./static/html")
 
 link_dict = {}
+
+
+@app.get("/", response_class=HTMLResponse)
+def main_page(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login(request: Request, username: Annotated[str, Form()], password: Annotated[str, Form()]):
+    return templates.TemplateResponse("login.html", {"request": request, "username": username})
+
+
+@app.get("/item/{item_id}", response_class=HTMLResponse)
+def item_page(request: Request, item_id: str):
+    return templates.TemplateResponse("index.html", {"request": request, "id": item_id})
 
 
 @app.get("/get_link")
