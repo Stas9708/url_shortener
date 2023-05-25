@@ -31,11 +31,11 @@ def registration_page(request: Request):
 
 
 @app.post("/registration", response_class=HTMLResponse)
-def registration(request: Request, login: Annotated[str, Form()], password: Annotated[str, Form()]):
+def registration(username: Annotated[str, Form()], password: Annotated[str, Form()]):
     global count_of_users
     count_of_users += 1
-    registration_data["user" + str(count_of_users)] = [login, password]
-    user_response = RedirectResponse(url=str(templates.TemplateResponse("login.html", {"request": request})))
+    registration_data[count_of_users] = [username, password]
+    user_response = RedirectResponse(url="/login")
     return user_response
 
 
@@ -50,7 +50,7 @@ def login_page(request: Request):
 
 
 @app.post("/login", response_class=HTMLResponse)
-def login(request: Request, username: Annotated[str, Form()], password: Annotated[str, Form()]):
+def login(request: Request, username: Annotated[str, Form()]):
     return templates.TemplateResponse("login.html", {"request": request, "username": username})
 
 
