@@ -1,3 +1,12 @@
+"""
+- написать страничку регистрации по примеру странички логина (добавить форму)
+- написать 2 обработчика (get и post) для регистрации пользователя
+    - get просто отображает страничку
+    - post принимает данные пользователя из формы (логин и пароль), сохраняет их в словаре
+    и делает переадресацию на страничку логина
+"""
+
+
 import uvicorn
 from typing import Annotated
 from fastapi import FastAPI, HTTPException, Request, Form
@@ -10,7 +19,24 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="./static/html")
 
+
 link_dict = {}
+registration_data = {}
+count_of_users = 0
+
+
+@app.get("/registration", response_class=HTMLResponse)
+def registration_page(request: Request):
+    return templates.TemplateResponse("registration.html", {"request": request})
+
+
+@app.post("/registration", response_class=HTMLResponse)
+def registration(username: Annotated[str, Form()], password: Annotated[str, Form()]):
+    global count_of_users
+    count_of_users += 1
+    registration_data[count_of_users] = [username, password]
+    user_response = RedirectResponse(url="/login")
+    return user_response
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -24,7 +50,7 @@ def login_page(request: Request):
 
 
 @app.post("/login", response_class=HTMLResponse)
-def login(request: Request, username: Annotated[str, Form()], password: Annotated[str, Form()]):
+def login(request: Request, username: Annotated[str, Form()]):
     return templates.TemplateResponse("login.html", {"request": request, "username": username})
 
 
