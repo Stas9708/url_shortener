@@ -1,11 +1,10 @@
-
+import pymysql.cursors
 import uvicorn
 from typing import Annotated
 from fastapi import FastAPI, HTTPException, Request, Form, Depends
 from starlette.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import pymysql.cursors
 
 
 app = FastAPI()
@@ -20,7 +19,6 @@ connection = pymysql.connect(
     db="test_db",
     cursorclass=pymysql.cursors.DictCursor
 )
-link_dict = {}
 
 
 @app.get("/registration", response_class=HTMLResponse)
@@ -66,7 +64,13 @@ def get_user_link(long_link: str):
         if db_long_link:
             return {"url": f"127.0.0.1:8080/{db_long_link['short_link']}"}
         else:
+            sql = "SELECT short_link FROM `links`"
+            cursor.execute(sql)
+            db_all_short_links = [v["short_link"] for v in cursor.fetchall()]
             hash_link = str(hash(long_link))[0:5]
+            while hash_link in db_all_short_links:
+                hash_link = str(hash(long_link))[0:5]
+
             sql = "INSERT INTO `links` (`long_link`, `short_link`) VALUES(%s, %s)"
             cursor.execute(sql, (long_link, hash_link))
             connection.commit()
@@ -75,28 +79,38 @@ def get_user_link(long_link: str):
 
 @app.get("/r/{short_link}")
 def redirect(short_link: str):
-    if short_link in link_dict:
-        result = RedirectResponse(url=link_dict[short_link]["long_link"])
-        link_dict[short_link]["counter"] += 1
-        return result
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail="Item not found",
-            headers={"X-Error": "There goes my error"},
-        )
+    with connection.cursor() as cursor:
+        sql = "SELECT short_link, long_link, redirect_counter FROM `links` WHERE short_link = %s"
+        cursor.execute(sql, (short_link,))
+        db_result = cursor.fetchone()
+        if db_result:
+            result = RedirectResponse(url=db_result["long_link"])
+            sql = "UPDATE `links` SET redirect_counter = %s WHERE short_link = %s"
+            cursor.execute(sql, (db_result['redirect_counter'] + 1, db_result['short_link']))
+            connection.commit()
+            return result
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="Item not found",
+                headers={"X-Error": "There goes my error"},
+            )
 
 
 @app.get("/get_count_of_short_link")
 def get_count(short_link: str):
-    if short_link in link_dict:
-        return {"counter": link_dict[short_link]["counter"]}
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail="Item not found",
-            headers={"X-Error": "There goes my error"},
-        )
+    with connection.cursor() as cursor:
+        sql = "SELECT redirect_counter FROM `links` WHERE `short_link` = %s"
+        cursor.execute(sql, (short_link,))
+        db_result = cursor.fetchone()
+        if db_result:
+            return {"counter": db_result["redirect_counter"]}
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="Item not found",
+                headers={"X-Error": "There goes my error"},
+                )
 
 
 if __name__ == "__main__":
